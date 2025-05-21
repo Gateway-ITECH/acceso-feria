@@ -1,0 +1,16 @@
+version: '3.1'
+
+
+services:
+  scholl_pg:
+    image: postgres:latest
+    restart: always
+    ports:
+      - "5438:5432"
+    environment:
+      POSTGRES_USER: school
+      POSTGRES_DB: schooldb
+      POSTGRES_PASSWORD: secret0602
+    container_name: scholl_pg
+    volumes:
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql 
