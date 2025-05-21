@@ -1,0 +1,132 @@
+name: publish
+
+on:
+  push:
+    branches: ['develop', 'main', 'qa']
+
+jobs:
+  build-image:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.ref == 'refs/heads/develop' && 'dev' || github.ref == 'refs/heads/main' && 'prod' || github.ref == 'refs/heads/qa' && 'qa' }}
+
+    steps:
+      - name: Checkout the code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.TOKEN_CI_CD }}
+
+      - name: Build image
+        run: |
+          # Determinar el tag b asado en la rama
+          if [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then
+            TAG="dev"
+            CONTAINER_NAME="app-feria-dev"
+          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            TAG="prod"
+            CONTAINER_NAME="app-feria-prod"
+          elif [[ "${{ github.ref }}" == "refs/heads/qa" ]]; then
+            TAG="qa"
+            CONTAINER_NAME="app-feria-qa"
+          fi
+
+          docker build . --tag ghcr.io/gateway-itech/acceso-feria:$TAG
+          docker push ghcr.io/gateway-itech/acceso-feria:$TAG
+
+  deploy:
+    needs: build-image
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.ref == 'refs/heads/develop' && 'dev' || github.ref == 'refs/heads/main' && 'prod' || github.ref == 'refs/heads/qa' && 'qa' }}
+    steps:
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_KEY }}
+          timeout: 120s
+          script: |
+            echo "Deploying to VPS"
+
+            if [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then
+              export TAG="dev"
+              export CONTAINER_NAME="app-feria-dev"
+            elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+              export TAG="prod"
+              export CONTAINER_NAME="app-feria-prod"
+            elif [[ "${{ github.ref }}" == "refs/heads/qa" ]]; then
+              export TAG="qa"
+              export CONTAINER_NAME="app-feria-qa"
+            fi
+
+            echo "Checking if container exists"
+            sudo docker ps -a --format '{{.Names}}' | grep $CONTAINER_NAME || true
+            if [ $? -eq 0 ]; then
+              echo "Container exists, removing"
+              sudo docker rm -f $CONTAINER_NAME || true
+            fi
+
+            # Verificar si existe la red tornado-network, si no existe crearla
+            # echo "Checking if tornado-network exists"
+            # docker network ls | grep tornado-network || docker network create tornado-network
+            # echo "Using tornado-network for container communication"
+
+            echo "Cleaning up old images to free up disk space"
+            # Remove dangling images (untagged images)
+            sudo docker image prune -f
+            # Remove old images with the same tag
+            sudo docker images --format '{{.Repository}}:{{.Tag}}' | grep "ghcr.io/gateway-itech/acceso-feria:$TAG" | xargs -r sudo docker rmi -f || true
+            # List remaining images for verification
+            echo "Remaining images after cleanup:"
+            sudo docker images
+
+            echo "Login to GitHub Container Registry"
+            echo "${{ secrets.TOKEN_CI_CD }}" | sudo docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            echo "Pulling latest image"
+            sudo docker pull ghcr.io/gateway-itech/acceso-feria:$TAG
+
+
+            # Ejecutar contenedor con variables de entorno
+            sudo docker run -d \
+              --name $CONTAINER_NAME \
+              --restart always \
+              -p ${{ secrets.PORT }}:3000 \
+              -e STAGE=$TAG \
+              -e DB_PASSWORD=${{ secrets.DB_PASSWORD }} \
+              -e DB_NAME=${{ secrets.DB_NAME }} \
+              -e DB_HOST=${{ secrets.DB_HOST }} \
+              -e DB_PORT=${{ secrets.DB_PORT }} \
+              -e DB_USERNAME=${{ secrets.DB_USERNAME }} \
+              -e PORT=${{ secrets.PORT }} \
+              -e HOST_API=${{ secrets.HOST_API }} \
+              -e JWT_SECRET=${{ secrets.JWT_SECRET }} \
+              ghcr.io/gateway-itech/acceso-feria:$TAG
+              
+            # Verificar que el contenedor esté en ejecución
+            echo "Verifying container is running"
+            docker ps | grep $CONTAINER_NAME
+
+            echo "Container $CONTAINER_NAME started successfully"
+
+  notify-slack:
+    name: Notify Slack
+    needs: [deploy]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          fields: repo,message,commit,author,action,eventName,ref,workflow,job,took,pullRequest
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
