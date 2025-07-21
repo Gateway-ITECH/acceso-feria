@@ -38,10 +38,10 @@ export class UserController {
     return this.userService.login(loginUserDto);
   }
 
-  @Post('login-ws')
-  async loginWs(@Body('userId') userId: string) {
-    return this.userService.loginWs(userId);
-  }
+  // @Post('login-ws')
+  // async loginWs(@Body('userId') userId: string) {
+  //   return this.userService.loginWs(userId);
+  // }
 
   @Get()
   @UseGuards(AuthGuard(), UseRoleGuard)
