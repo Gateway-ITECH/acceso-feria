@@ -4,15 +4,17 @@ import {
   ExecutionContext,
   UnauthorizedException,
   Logger,
+  Inject,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { ConfigType } from '@nestjs/config';
 import { WebhookAuthenticationException } from '../exceptions/webhook.exceptions';
+import config from 'src/config';
 
 @Injectable()
 export class WebhookAuthGuard implements CanActivate {
   private readonly logger = new Logger(WebhookAuthGuard.name);
 
-  constructor(private configService: ConfigService) {}
+  constructor(@Inject(config.KEY) private configService: ConfigType<typeof config>) {}
 
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest();
@@ -47,7 +49,7 @@ export class WebhookAuthGuard implements CanActivate {
       );
     }
 
-    const webhookToken = this.configService.get<string>('WEBHOOK_API_TOKEN');
+    const webhookToken = this.configService.server.webhookApiToken;
     if (!webhookToken) {
       this.logger.error(
         '[WEBHOOK_AUTH] Webhook token not configured in environment variables',
