@@ -61,9 +61,6 @@ export class WebhookAuthGuard implements CanActivate {
       );
     }
 
-    console.log('token', token);
-    console.log('webhookToken', webhookToken);
-
     if (token !== webhookToken) {
       this.logger.warn(
         `[WEBHOOK_AUTH] Invalid webhook token provided from ${clientIp}`,
