@@ -39,6 +39,7 @@ export class WebhookAuthGuard implements CanActivate {
     }
 
     const token = this.extractTokenFromHeader(authHeader);
+
     if (!token) {
       this.logger.warn(
         `[WEBHOOK_AUTH] Invalid authorization header format from ${clientIp}`,
@@ -59,6 +60,9 @@ export class WebhookAuthGuard implements CanActivate {
         'server_configuration_error',
       );
     }
+
+    console.log('token', token);
+    console.log('webhookToken', webhookToken);
 
     if (token !== webhookToken) {
       this.logger.warn(
