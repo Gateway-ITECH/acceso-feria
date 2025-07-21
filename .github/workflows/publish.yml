@@ -110,6 +110,10 @@ jobs:
               -e PORT=${{ secrets.PORT }} \
               -e HOST_API=${{ secrets.HOST_API }} \
               -e JWT_SECRET=${{ secrets.JWT_SECRET }} \
+              -e JWT_EXPIRES_IN=${{ secrets.JWT_EXPIRES_IN }} \
+              -e WEBHOOK_API_TOKEN=${{ secrets.WEBHOOK_API_TOKEN }} \
+              -e WS_CORS_ORIGIN=${{ secrets.WS_CORS_ORIGIN }} \
+              -e WS_NAMESPACE=${{ secrets.WS_NAMESPACE }} \
               ghcr.io/gateway-itech/acceso-feria:$TAG
               
             # Verificar que el contenedor esté en ejecución
@@ -118,15 +122,15 @@ jobs:
 
             echo "Container $CONTAINER_NAME started successfully"
 
-  notify-slack:
-    name: Notify Slack
-    needs: [deploy]
-    runs-on: ubuntu-latest
-    if: always()
-    steps:
-      - uses: 8398a7/action-slack@v3
-        with:
-          status: ${{ job.status }}
-          fields: repo,message,commit,author,action,eventName,ref,workflow,job,took,pullRequest
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+  # notify-slack:
+  #   name: Notify Slack
+  #   needs: [deploy]
+  #   runs-on: ubuntu-latest
+  #   if: always()
+  #   steps:
+  #     - uses: 8398a7/action-slack@v3
+  #       with:
+  #         status: ${{ job.status }}
+  #         fields: repo,message,commit,author,action,eventName,ref,workflow,job,took,pullRequest
+  #       env:
+  #         SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
