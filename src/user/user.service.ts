@@ -40,6 +40,20 @@ export class UserService {
     }
   }
 
+  async loginWs(userId: string) {
+    try {
+
+      return {
+        token: this.getJwtToken({ 
+          // email: user.email,
+          id: userId,
+        }),
+      }
+    } catch (error) {
+      return error;
+    }
+  }
+
   async login(loginUserDto: LoginUserDto) {
     try {
       const { email, password } = loginUserDto;

@@ -2,27 +2,21 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UserModule } from './user/user.module';
+import { NotificationModule } from './notification/notification.module';
+import { validateEnvironment } from './config/environment.validation';
+import { DatabaseModule } from './database/database.module';
+import config from './config';
 
 @Module({
   imports: [
-    ConfigModule.forRoot(),
-    TypeOrmModule.forRoot({
-      ssl: process.env.STAGE === 'prod',
-      extra: {
-        ssl:
-          process.env.STAGE === 'prod' ? { rejectUnauthorized: false } : null,
-      },
-      type: 'postgres',
-      host: process.env.DB_HOST,
-      port: parseInt(process.env.DB_PORT),
-      username: process.env.DB_USERNAME,
-      password: process.env.DB_PASSWORD,
-      database: process.env.DB_NAME,
-      autoLoadEntities: true,
-      synchronize: true,
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: '.env',
+      load: [config],
     }),
     UserModule,
-    
+    NotificationModule,
+    DatabaseModule,
   ],
 })
 export class AppModule {}
